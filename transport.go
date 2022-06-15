@@ -43,9 +43,25 @@ var quicConfig = &quic.Config{
 	MaxIncomingUniStreams:      -1,             // disable unidirectional streams
 	MaxStreamReceiveWindow:     10 * (1 << 20), // 10 MB
 	MaxConnectionReceiveWindow: 15 * (1 << 20), // 15 MB
-	AcceptToken: func(clientAddr net.Addr, _ *quic.Token) bool {
+	AcceptToken: func(clientAddr net.Addr, token *quic.Token) bool {
 		// TODO(#6): require source address validation when under load
-		return true
+		if token == nil {
+			return false
+		}
+		validity := time.Hour * 24
+		if token.IsRetryToken {
+			validity = time.Second * 10
+		}
+		if time.Now().After(token.SentTime.Add(validity)) {
+			return false
+		}
+		var sourceAddr string
+		if udpAddr, ok := clientAddr.(*net.UDPAddr); ok {
+			sourceAddr = udpAddr.IP.String()
+		} else {
+			sourceAddr = clientAddr.String()
+		}
+		return sourceAddr == token.RemoteAddr
 	},
 	KeepAlive: true,
 	Versions:  []quic.VersionNumber{quic.VersionDraft29, quic.Version1},
