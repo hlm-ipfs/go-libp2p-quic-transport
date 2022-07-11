@@ -38,7 +38,7 @@ var quicDialContext = quic.DialContext // so we can mock it in tests
 
 var HolePunchTimeout = 5 * time.Second
 
-var quicConfig = &quic.Config{
+var QuicConfig = &quic.Config{
 	MaxIncomingStreams:         256,
 	MaxIncomingUniStreams:      -1,             // disable unidirectional streams
 	MaxStreamReceiveWindow:     10 * (1 << 20), // 10 MB
@@ -170,7 +170,7 @@ func NewTransport(key ic.PrivKey, psk pnet.PSK, gater connmgr.ConnectionGater, r
 	if rcmgr == nil {
 		rcmgr = network.NullResourceManager
 	}
-	config := quicConfig.Clone()
+	config := QuicConfig.Clone()
 	keyBytes, err := key.Raw()
 	if err != nil {
 		return nil, err
