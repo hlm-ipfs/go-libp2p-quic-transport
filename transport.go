@@ -34,7 +34,7 @@ var log = logging.Logger("quic-transport")
 
 var ErrHolePunching = errors.New("hole punching attempted; no active dial")
 
-var quicDialContext = quic.DialContext // so we can mock it in tests
+var quicDialContext = quic.DialEarlyContext // so we can mock it in tests
 
 var HolePunchTimeout = 5 * time.Second
 
@@ -180,7 +180,9 @@ func NewTransport(key ic.PrivKey, psk pnet.PSK, gater connmgr.ConnectionGater, r
 	if _, err := io.ReadFull(keyReader, config.StatelessResetKey); err != nil {
 		return nil, err
 	}
-	config.Tracer = tracer
+	if config.Tracer == nil {
+		config.Tracer = tracer
+	}
 
 	tr := &transport{
 		privKey:      key,
@@ -230,6 +232,11 @@ func (t *transport) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) (tp
 	pconn, err := t.connManager.Dial(netw, addr)
 	if err != nil {
 		return nil, err
+	}
+	if ok, _, _ := network.GetSimultaneousConnect(ctx); ok {
+		if err = t.preHole(pconn, addr); err != nil {
+			return nil, err
+		}
 	}
 	qconn, err := quicDialContext(ctx, pconn, addr, host, tlsConf, t.clientConfig)
 	if err != nil {
